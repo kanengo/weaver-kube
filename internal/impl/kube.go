@@ -63,11 +63,12 @@ var externalPort int32 = 20000
 // Note that this is different from a Kubernetes Deployment. A deployed Service
 // Weaver application consists of many Kubernetes Deployments.
 type deployment struct {
-	deploymentId string            // globally unique deployment id
-	image        string            // Docker image URI
-	config       *kubeConfig       // [kube] config from weaver.toml
-	app          *protos.AppConfig // parsed weaver.toml
-	groups       []group           // groups
+	deploymentId     string            // globally unique deployment id
+	image            string            // Docker image URI
+	config           *kubeConfig       // [kube] config from weaver.toml
+	app              *protos.AppConfig // parsed weaver.toml
+	groups           []group           // groups
+	imagePullSecrets []string
 }
 
 // listener contains information about a listener.
@@ -108,6 +109,10 @@ func buildDeployment(d deployment, g group) (*appsv1.Deployment, error) {
 		return nil, err
 	}
 
+	var imagePullSecrets []corev1.LocalObjectReference
+	for _, secret := range d.imagePullSecrets {
+		imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: secret})
+	}
 	// Create Deployment.
 	dep := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -140,6 +145,7 @@ func buildDeployment(d deployment, g group) (*appsv1.Deployment, error) {
 				Spec: corev1.PodSpec{
 					ServiceAccountName: d.config.ServiceAccount,
 					Containers:         []corev1.Container{container},
+					ImagePullSecrets:   imagePullSecrets,
 					DNSPolicy:          dnsPolicy,
 					HostNetwork:        d.config.UseHostNetwork,
 					Affinity:           updateAffinitySpec(d.config.AffinitySpec, matchLabels),
@@ -360,7 +366,7 @@ func buildContainer(d deployment, g group) (corev1.Container, error) {
 //   - If observability services are enabled (e.g., Prometheus, Jaeger), a
 //     Kubernetes Deployment and/or a Service for each observability service.
 func generateYAMLs(app *protos.AppConfig, cfg *kubeConfig, depId, image string) error {
-	fmt.Fprintf(os.Stderr, greenText(), "\nGenerating kube deployment info ...")
+	_, _ = fmt.Fprintf(os.Stderr, greenText(), "\nGenerating kube deployment info ...")
 
 	// Form deployment.
 	d, err := newDeployment(app, cfg, depId, image)
@@ -383,6 +389,7 @@ func generateYAMLs(app *protos.AppConfig, cfg *kubeConfig, depId, image string) 
 	}
 
 	// Generate configuration ConfigMap.
+	//内置到镜像里
 	if err := generateConfigMap(&b, cfg.AppConfig, d); err != nil {
 		return fmt.Errorf("unable to generate configuration ConfigMap: %w", err)
 	}
@@ -688,7 +695,7 @@ func newDeployment(app *protos.AppConfig, cfg *kubeConfig, depId, image string) 
 
 	// Form groups.
 	groupsByName := map[string]group{}
-	defaultName := "monolithic"
+	defaultName := "default"
 	for component, listeners := range components {
 		// We use the first component in a group as the name of the group.
 
@@ -726,11 +733,12 @@ func newDeployment(app *protos.AppConfig, cfg *kubeConfig, depId, image string) 
 	})
 
 	return deployment{
-		deploymentId: depId,
-		image:        image,
-		config:       cfg,
-		app:          app,
-		groups:       sorted,
+		deploymentId:     depId,
+		image:            image,
+		config:           cfg,
+		app:              app,
+		groups:           sorted,
+		imagePullSecrets: cfg.ImagePullSecrets,
 	}, nil
 }
 
