@@ -232,7 +232,7 @@ func buildAutoscaler(d deployment, g group) (*autoscalingv2.HorizontalPodAutosca
 	} else { // No scaling spec specified, compute default spec.
 		spec = autoscalingv2.HorizontalPodAutoscalerSpec{
 			MinReplicas: ptrOf(int32(1)),
-			MaxReplicas: 10,
+			MaxReplicas: 1,
 			Metrics: []autoscalingv2.MetricSpec{
 				{
 					// The pods are scaled up/down when the average CPU
