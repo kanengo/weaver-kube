@@ -23,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"text/template"
 	"time"
 
@@ -40,6 +41,7 @@ type dockerOptions struct {
 	repo      string // see kubeConfig.Repo
 	baseImage string // see kubeConfig.BaseImage
 	buildTool string // build tool to be used for building container image ( i.e `podman` or `docker` )
+	pullRepo  string
 }
 
 // buildAndUploadDockerImage builds a Docker image and uploads it to a remote
@@ -123,11 +125,11 @@ downloaded and installed in the container. Do you want to proceed? [Y/n] `)
 		if text != "" && text != "y" && text != "Y" {
 			return "", fmt.Errorf("user bailed out")
 		}
-		install = "github.com/ServiceWeaver/weaver-kube/cmd/weaver-kube@latest"
+		install = "github.com/kanengo/weaver-kube-r/cmd/weaver-kube-r@latest"
 	} else {
 		// Install the currently running version of "weaver-kube" in the
 		// container.
-		install = "github.com/ServiceWeaver/weaver-kube/cmd/weaver-kube@" + toolVersion
+		install = "github.com/kanengo/weaver-kube-r/cmd/weaver-kube-r@" + toolVersion
 	}
 
 	// Create a Dockerfile in workDir/.
@@ -157,7 +159,7 @@ ENTRYPOINT ["{{.Entrypoint}}"]
 	defer dockerFile.Close()
 	c := content{Install: install}
 	if install != "" {
-		c.Entrypoint = "/weaver/weaver-kube"
+		c.Entrypoint = "/weaver/weaver-kube-r"
 	} else {
 		c.Entrypoint = filepath.Join("/weaver", filepath.Base(tool))
 	}
@@ -198,5 +200,10 @@ func pushImage(ctx context.Context, image string, opts dockerOptions) (string, e
 	if err := cPush.Run(); err != nil {
 		return "", err
 	}
+
+	if opts.pullRepo != "" {
+		repoTag = strings.ReplaceAll(repoTag, opts.repo, opts.pullRepo)
+	}
+
 	return repoTag, nil
 }

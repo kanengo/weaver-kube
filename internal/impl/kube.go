@@ -677,6 +677,8 @@ func newDeployment(app *protos.AppConfig, cfg *kubeConfig, depId, image string) 
 	}
 
 	// Map every component to its group, or nil if it's in a group by itself.
+
+	//单独部署的组件，否则默认都部署在一起
 	groups := map[string]group{}
 	for _, group := range cfg.Groups {
 		for _, component := range group.Components {
@@ -686,21 +688,24 @@ func newDeployment(app *protos.AppConfig, cfg *kubeConfig, depId, image string) 
 
 	// Form groups.
 	groupsByName := map[string]group{}
+	defaultName := "monolithic"
 	for component, listeners := range components {
 		// We use the first component in a group as the name of the group.
-		var gname string
+
+		//如果配置groups没有，则统一部署在一起
+		var gName string
 		cgroup, ok := groups[component]
 		if ok {
-			gname = cgroup.Name
+			gName = cgroup.Name
 		} else {
-			gname = component
+			gName = defaultName
 		}
 
 		// Append the component and listeners to the group.
-		g, ok := groupsByName[gname]
+		g, ok := groupsByName[gName]
 		if !ok {
 			g = group{
-				Name:         gname,
+				Name:         gName,
 				StorageSpec:  cgroup.StorageSpec,
 				ResourceSpec: cgroup.ResourceSpec,
 				ScalingSpec:  cgroup.ScalingSpec,
@@ -711,7 +716,7 @@ func newDeployment(app *protos.AppConfig, cfg *kubeConfig, depId, image string) 
 			g.listeners = append(g.listeners, newListener(depId, cfg, name))
 		}
 
-		groupsByName[gname] = g
+		groupsByName[gName] = g
 	}
 
 	// Sort groups by name to ensure stable YAML.

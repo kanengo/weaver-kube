@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	defaultBuildTool                = "docker"
+	defaultBuildTool                = "podman"
 	defaultNamespace                = "default"
 	defaultServiceAccount           = "default"
 	defaultBaseImage                = "ubuntu:rolling"
@@ -127,7 +127,13 @@ func Deploy(ctx context.Context, configFilename string) error {
 	depId := uuid.New().String()
 
 	// Build the docker image for the deployment.
-	opts := dockerOptions{image: config.Image, repo: config.Repo, baseImage: config.BaseImage, buildTool: config.BuildTool}
+	opts := dockerOptions{
+		image:     config.Image,
+		repo:      config.Repo,
+		baseImage: config.BaseImage,
+		buildTool: config.BuildTool,
+		pullRepo:  config.PullRepo,
+	}
 	image, err := buildAndUploadDockerImage(ctx, app, depId, opts)
 	if err != nil {
 		return err

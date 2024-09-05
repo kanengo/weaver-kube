@@ -59,6 +59,8 @@ type kubeConfig struct {
 	//   - GitHub Container Registry : ghcr.io/NAMESPACE
 	Repo string
 
+	PullRepo         string
+	ImagePullSecrets []string
 	// Namespace is the name of the Kubernetes namespace where the application
 	// should be deployed. If not specified, the application will be deployed in
 	// the default namespace.
