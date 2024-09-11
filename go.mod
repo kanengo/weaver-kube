@@ -4,7 +4,7 @@ go 1.22
 
 toolchain go1.23.0
 
-replace github.com/ServiceWeaver/weaver => github.com/kanengo/weaver v1.0.1
+replace github.com/ServiceWeaver/weaver => github.com/kanengo/weaver v0.24.3-kng.2
 
 require (
 	github.com/ServiceWeaver/weaver v0.24.3
