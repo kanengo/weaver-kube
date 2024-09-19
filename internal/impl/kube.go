@@ -306,6 +306,8 @@ func buildContainer(d deployment, g group) (corev1.Container, error) {
 			},
 		},
 
+		EnvFrom: d.config.EnvFrom,
+
 		// Enabling TTY and Stdin allows the user to run a shell inside the
 		// container, for debugging.
 		TTY:   true,

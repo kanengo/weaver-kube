@@ -120,6 +120,8 @@ type kubeConfig struct {
 
 	// TelemetrySpec contains options to control how the telemetry is being manipulated.
 	Telemetry telemetry
+
+	EnvFrom []corev1.EnvFromSource
 }
 
 // listenerSpec stores configuration options for a listener.
