@@ -30,10 +30,10 @@ import (
 )
 
 const (
-	defaultBuildTool                = "podman"
+	defaultBuildTool                = "docker"
 	defaultNamespace                = "default"
 	defaultServiceAccount           = "default"
-	defaultBaseImage                = "ubuntu:rolling"
+	defaultBaseImage                = "apline:rolling"
 	defaultMinExportMetricsInterval = "30s"
 )
 
