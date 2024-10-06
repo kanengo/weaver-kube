@@ -33,7 +33,7 @@ const (
 	defaultBuildTool                = "docker"
 	defaultNamespace                = "default"
 	defaultServiceAccount           = "default"
-	defaultBaseImage                = "apline:rolling"
+	defaultBaseImage                = "alpine:latest"
 	defaultMinExportMetricsInterval = "30s"
 )
 
