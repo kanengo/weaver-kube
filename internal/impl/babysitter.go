@@ -63,6 +63,8 @@ type babysitter struct {
 
 	mu       sync.Mutex
 	watching map[string]struct{} // components being watched
+
+	colocation map[string]struct{}
 }
 
 var _ envelope.EnvelopeHandler = &babysitter{}
@@ -97,6 +99,11 @@ func NewBabysitter(ctx context.Context, app *protos.AppConfig, config *Babysitte
 		return nil, fmt.Errorf("NewBabysitter: get kube client set: %w", err)
 	}
 
+	colocation := make(map[string]struct{}, len(components))
+	for _, component := range components {
+		colocation[component] = struct{}{}
+	}
+
 	// Create the babysitter.
 	b := &babysitter{
 		ctx:       ctx,
@@ -107,6 +114,8 @@ func NewBabysitter(ctx context.Context, app *protos.AppConfig, config *Babysitte
 		clientset: clientset,
 		logger:    logger,
 		watching:  map[string]struct{}{},
+
+		colocation: colocation,
 	}
 
 	// Create the pretty printer for logging, if there is no log handler.
@@ -152,12 +161,25 @@ func (b *babysitter) Serve() error {
 
 // ActivateComponent implements the envelope.EnvelopeHandler interface.
 func (b *babysitter) ActivateComponent(_ context.Context, request *protos.ActivateComponentRequest) (*protos.ActivateComponentReply, error) {
-	go func() {
-		if err := b.watchPods(b.ctx, request.Component); err != nil {
-			// TODO(mwhittaker): Log this error.
-			fmt.Fprintf(os.Stderr, "watchPods(%q): %v", request.Component, err)
+	if _, ok := b.colocation[request.Component]; !ok {
+		go func() {
+			if err := b.watchPods(b.ctx, request.Component); err != nil {
+				// TODO(mwhittaker): Log this error.
+				fmt.Fprintf(os.Stderr, "watchPods(%q): %v", request.Component, err)
+			}
+		}()
+	} else {
+		localRoutingInfo := &protos.RoutingInfo{
+			Component: request.Component,
+			Local:     true,
 		}
-	}()
+		go func() {
+			if err := b.envelope.UpdateRoutingInfo(localRoutingInfo); err != nil {
+				// TODO(mwhittaker): Log this error.
+				fmt.Fprintf(os.Stderr, "UpdateRoutingInfo(%v): %v", localRoutingInfo, err)
+			}
+		}()
+	}
 	return &protos.ActivateComponentReply{}, nil
 }
 
