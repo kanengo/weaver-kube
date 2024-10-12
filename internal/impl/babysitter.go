@@ -156,7 +156,12 @@ func (b *babysitter) Serve() error {
 		return b.envelope.Serve(b)
 	})
 
-	return group.Wait()
+	quit := make(chan error)
+	runtime.OnExitSignal(func() {
+		quit <- group.Wait()
+	})
+
+	return <-quit
 }
 
 // ActivateComponent implements the envelope.EnvelopeHandler interface.
