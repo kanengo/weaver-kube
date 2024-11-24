@@ -134,7 +134,7 @@ func Deploy(ctx context.Context, configFilename string) error {
 		buildTool: config.BuildTool,
 		pullRepo:  config.PullRepo,
 	}
-	image, err := buildAndUploadDockerImage(ctx, app, depId, opts)
+	image, err := buildAndUploadDockerImage(ctx, app, depId, opts, config)
 	if err != nil {
 		return err
 	}

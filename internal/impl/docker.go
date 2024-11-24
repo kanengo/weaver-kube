@@ -15,7 +15,6 @@
 package impl
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -47,9 +46,9 @@ type dockerOptions struct {
 // buildAndUploadDockerImage builds a Docker image and uploads it to a remote
 // repo, if one is specified. It returns the image name that should be used in
 // Kubernetes YAML files.
-func buildAndUploadDockerImage(ctx context.Context, app *protos.AppConfig, depId string, opts dockerOptions) (string, error) {
+func buildAndUploadDockerImage(ctx context.Context, app *protos.AppConfig, depId string, opts dockerOptions, config *kubeConfig) (string, error) {
 	// Build the Docker image.
-	image, err := buildImage(ctx, app, depId, opts)
+	image, err := buildImage(ctx, app, depId, opts, config)
 	if err != nil {
 		return "", fmt.Errorf("unable to create image: %w", err)
 	}
@@ -66,7 +65,7 @@ func buildAndUploadDockerImage(ctx context.Context, app *protos.AppConfig, depId
 }
 
 // buildImage builds a Docker image.
-func buildImage(ctx context.Context, app *protos.AppConfig, depId string, opts dockerOptions) (string, error) {
+func buildImage(ctx context.Context, app *protos.AppConfig, depId string, opts dockerOptions, config *kubeConfig) (string, error) {
 	// Pick an image name.
 	image := opts.image
 	if image == "" {
@@ -97,10 +96,10 @@ func buildImage(ctx context.Context, app *protos.AppConfig, depId string, opts d
 	// Copy the "weaver-kube" binary into workDir/ if the binary can run in the
 	// container. Otherwise, we'll install the "weaver-kube" binary inside the
 	// container.
-	toolVersion, toolIsDev, err := ToolVersion()
-	if err != nil {
-		return "", err
-	}
+	//toolVersion, toolIsDev, err := ToolVersion()
+	//if err != nil {
+	//	return "", err
+	//}
 	tool, err := os.Executable()
 	if err != nil {
 		return "", err
@@ -111,28 +110,11 @@ func buildImage(ctx context.Context, app *protos.AppConfig, depId string, opts d
 		if err := cp(tool, filepath.Join(workDir, filepath.Base(tool))); err != nil {
 			return "", err
 		}
-	} else if toolIsDev {
-		// The "weaver-kube" binary has local modifications, but it cannot be
-		// copied into the container. In this case, we install the latest
-		// version of "weaver-kube" in the container, if approved by the user.
-		scanner := bufio.NewScanner(os.Stdin)
-		fmt.Print(
-			`The running weaver-kube binary hasn't been cross-compiled for linux/amd64 and
-cannot run inside the container. Instead, the latest weaver-kube binary will be
-downloaded and installed in the container. Do you want to proceed? [Y/n] `)
-		scanner.Scan()
-		text := scanner.Text()
-		if text != "" && text != "y" && text != "Y" {
-			return "", fmt.Errorf("user bailed out")
-		}
-		install = "github.com/kanengo/weaver-kube-r/cmd/weaver-kube-r@latest"
 	} else {
-		// Install the currently running version of "weaver-kube" in the
-		// container.
-		install = "github.com/kanengo/weaver-kube-r/cmd/weaver-kube-r@" + toolVersion
+		install = config.ToolUrl
 	}
 
-	// Create a Dockerfile in workDir/.
+	// Create a Dockerfile in workDir/. --platform linux/amd64
 	type content struct {
 		Install    string // "weaver-kube" binary to install, if any
 		Entrypoint string // container entrypoint
@@ -140,11 +122,13 @@ downloaded and installed in the container. Do you want to proceed? [Y/n] `)
 	}
 	var template = template.Must(template.New("Dockerfile").Parse(`
 {{if .Install }}
-FROM golang:bullseye as builder
-RUN go install "{{.Install}}"
+FROM --platform=linux/amd64 golang:bullseye as builder
+RUN curl -Lj -o weaver-kube "{{.Install}}" \
+	&& chmod +x weaver-kube \
+	&& mv weaver-kube /go/bin
 {{end}}
 
-FROM {{.BaseImage}}
+FROM --platform=linux/amd64 {{.BaseImage}}
 WORKDIR /weaver/
 COPY . .
 {{if .Install }}
@@ -159,7 +143,7 @@ ENTRYPOINT ["{{.Entrypoint}}"]
 	defer dockerFile.Close()
 	c := content{Install: install}
 	if install != "" {
-		c.Entrypoint = "/weaver/weaver-kube-r"
+		c.Entrypoint = "/weaver/weaver-kube"
 	} else {
 		c.Entrypoint = filepath.Join("/weaver", filepath.Base(tool))
 	}

@@ -122,6 +122,8 @@ type kubeConfig struct {
 	Telemetry telemetry
 
 	EnvFrom []corev1.EnvFromSource
+
+	ToolUrl string
 }
 
 // listenerSpec stores configuration options for a listener.

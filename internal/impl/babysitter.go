@@ -159,6 +159,7 @@ func (b *babysitter) Serve() error {
 	quit := make(chan error)
 	runtime.OnExitSignal(func() {
 		quit <- group.Wait()
+		slog.Info("kube exit  after waiting")
 	})
 
 	return <-quit
